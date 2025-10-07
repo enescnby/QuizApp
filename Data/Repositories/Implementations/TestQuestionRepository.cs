@@ -9,7 +9,7 @@ namespace QuizApp.Data.Repositories.Implementations
     {
         public TestQuestionRepository(ApplicationDbContext context) : base(context) { }
 
-        public async Task<IEnumerable<TestQuestion>> GetByCategory(Category category, int count) =>
+        public async Task<IEnumerable<TestQuestion>> GetByCategoryAsync(Category category, int count) =>
             await _dbSet.Where(tq => tq.Category == category)
                 .OrderBy(tq => EF.Functions.Random()).Take(count).ToListAsync();
     }

@@ -4,8 +4,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using QuizApp.Models;
 using System.Security.Cryptography;
+using QuizApp.Services.Interfaces;
 
-namespace QuizApp.Services.Auth.Implementations
+namespace QuizApp.Services.Implementations
 {
     public class TokenService : ITokenService
     {

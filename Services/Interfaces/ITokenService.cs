@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using QuizApp.Models;
 
-namespace QuizApp.Services.Auth.Implementations
+namespace QuizApp.Services.Interfaces
 {
     public interface ITokenService
     {

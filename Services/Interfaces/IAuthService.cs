@@ -1,6 +1,6 @@
 using QuizApp.Models;
 
-namespace QuizApp.Services.Auth.Interfaces
+namespace QuizApp.Services.Interfaces
 {
     public interface IAuthService
     {

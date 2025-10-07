@@ -5,6 +5,6 @@ namespace QuizApp.Data.Repositories.Interfaces
 {
     public interface ITestQuestionRepository : IGenericRepository<TestQuestion>
     {
-        Task<IEnumerable<TestQuestion>> GetByCategory(Category category, int count);
+        Task<IEnumerable<TestQuestion>> GetByCategoryAsync(Category category, int count);
     }
 }
