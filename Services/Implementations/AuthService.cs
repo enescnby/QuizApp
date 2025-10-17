@@ -33,14 +33,20 @@ namespace QuizApp.Services.Implementations
 
             var hashedPassword = HashPassword(password);
 
+            var userId = Guid.NewGuid();
             var user = new User
             {
-                UserId = Guid.NewGuid(),
+                UserId = userId,
                 Email = email,
                 Username = username,
                 PasswordHash = hashedPassword,
                 Role = Models.Enums.Role.User,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Stats = new UserStats
+                {
+                    UserStatsId = Guid.NewGuid(),
+                    UserId = userId
+                }
             };
 
             await _unitOfWork.Users.AddAsync(user);

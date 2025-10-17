@@ -21,5 +21,17 @@ namespace QuizApp.Services.Interfaces
         void DeleteRange(IEnumerable<TestQuestion> testQuestions);
         Task DeleteRangeAndSaveAsync(IEnumerable<TestQuestion> testQuestions);
         Task<IEnumerable<TestQuestion>> GetByCategoryAsync(Category category, int count);
+        Task<TestQuestion> CreateAndSaveQuestionAsync(
+            Category category,
+            string text,
+            string optionA,
+            string optionB,
+            string optionC,
+            string optionD,
+            string correctOption
+        );
+
+        Task<string> GetCorrectAnswer(Guid questionId);
+        Task<bool> GuessTheQuestion(Guid userId, Guid questionId, string answer); 
     }
 }

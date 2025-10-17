@@ -22,6 +22,13 @@ namespace QuizApp.Data.Repositories.Implementations
         public async Task<bool> ExistsByUsernameAsync(string username) =>
             await _dbSet.AnyAsync(u => u.Username == username);
 
+        public async Task<User?> GetWithStatsAsync(Guid userId)
+        {
+            return await _dbSet
+                .Include(u => u.Stats)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+        }
+
         public async Task<bool> IsAdminAsync(Guid userId)
         {
             User user = await _dbSet.FindAsync(userId)
