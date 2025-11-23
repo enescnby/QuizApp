@@ -1,5 +1,7 @@
-using System.Security.Cryptography;
-using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
+using Microsoft.Extensions.Configuration;
 using QuizApp.Data.UnitOfWork;
 using QuizApp.Models;
 using QuizApp.Services.Interfaces;
@@ -9,43 +11,89 @@ namespace QuizApp.Services.Implementations
     public sealed class AuthService : IAuthService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly ITokenService _tokenService;
+        private readonly HashSet<string> _adminPermissions;
 
-        private static readonly Dictionary<string, Guid> _refreshTokens = new();
-
-        public AuthService
-        (
-            IUnitOfWork unitOfWork,
-            ITokenService tokenService
-        )
+        public AuthService(IUnitOfWork unitOfWork, IConfiguration configuration)
         {
             _unitOfWork = unitOfWork;
-            _tokenService = tokenService;
+            var configuredPermissions = configuration
+                .GetSection("Auth0:AdminPermissions")
+                .Get<string[]>();
+
+            _adminPermissions = configuredPermissions != null
+                ? new HashSet<string>(
+                    configuredPermissions.Where(p => !string.IsNullOrWhiteSpace(p)),
+                    StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public async Task<User> RegisterAsync(string email, string username, string password)
+        public async Task<User> EnsureUserAsync(ClaimsPrincipal principal)
         {
-            if (await _unitOfWork.Users.ExistsByEmailAsync(email))
-                throw new Exception("Email is already registered");
+            if (principal == null)
+                throw new ArgumentNullException(nameof(principal));
 
-            if (await _unitOfWork.Users.ExistsByUsernameAsync(username))
-                throw new Exception("Username is taken");
+            var auth0Id = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? principal.FindFirst("sub")?.Value;
 
-            var hashedPassword = HashPassword(password);
+            if (string.IsNullOrWhiteSpace(auth0Id))
+                throw new InvalidOperationException("Authenticated principal does not include a subject identifier.");
 
-            var userId = Guid.NewGuid();
+            var existingUser = await _unitOfWork.Users.GetByAuth0IdAsync(auth0Id);
+            var email = principal.FindFirst("https://qioapp.com/email")?.Value
+                ?? principal.FindFirst(ClaimTypes.Email)?.Value;
+            var preferredUsername = principal.FindFirst("https://qioapp.com/username")?.Value
+                ?? principal.FindFirst("nickname")?.Value
+                ?? principal.FindFirst(ClaimTypes.Name)?.Value
+                ?? email
+                ?? auth0Id;
+            var claimedRole = ResolveRole(principal);
+
+            if (existingUser != null)
+            {
+                var requiresUpdate = false;
+
+                if (!string.IsNullOrWhiteSpace(email) &&
+                    !string.Equals(existingUser.Email, email, StringComparison.OrdinalIgnoreCase))
+                {
+                    existingUser.Email = email;
+                    requiresUpdate = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(preferredUsername) &&
+                    !string.Equals(existingUser.Username, preferredUsername, StringComparison.Ordinal))
+                {
+                    existingUser.Username = preferredUsername;
+                    requiresUpdate = true;
+                }
+
+                if (existingUser.Role != claimedRole)
+                {
+                    existingUser.Role = claimedRole;
+                    requiresUpdate = true;
+                }
+
+                if (requiresUpdate)
+                {
+                    _unitOfWork.Users.Update(existingUser);
+                    await _unitOfWork.SaveChangesAsync();
+                }
+
+                return existingUser;
+            }
+
+            var newUserId = Guid.NewGuid();
             var user = new User
             {
-                UserId = userId,
-                Email = email,
-                Username = username,
-                PasswordHash = hashedPassword,
-                Role = Models.Enums.Role.User,
+                UserId = newUserId,
+                Auth0Id = auth0Id,
+                Email = email ?? string.Empty,
+                Username = preferredUsername,
+                Role = claimedRole,
                 CreatedAt = DateTime.UtcNow,
                 Stats = new UserStats
                 {
                     UserStatsId = Guid.NewGuid(),
-                    UserId = userId
+                    UserId = newUserId
                 }
             };
 
@@ -55,75 +103,52 @@ namespace QuizApp.Services.Implementations
             return user;
         }
 
-        public async Task<(string AccessToken, string RefreshToken)> LoginAsync(string email, string password)
+        public Task<User?> GetByAuth0IdAsync(string auth0Id)
         {
-            var user = await _unitOfWork.Users.GetByEmailAsync(email);
-            if (user == null || !VerifyPassword(password, user.PasswordHash))
-                throw new Exception("Invalid Credentials");
+            if (string.IsNullOrWhiteSpace(auth0Id))
+                throw new ArgumentException("Auth0 identifier can not be null or empty.", nameof(auth0Id));
 
-            var accessToken = _tokenService.GenerateAccessToken(user);
-            var refreshToken = _tokenService.GenerateRefreshToken();
-
-            _refreshTokens[refreshToken] = user.UserId;
-
-            return (accessToken, refreshToken);
+            return _unitOfWork.Users.GetByAuth0IdAsync(auth0Id);
         }
 
-        public async Task<(string AccessToken, string RefreshToken)> RefreshTokenAsync(string refreshToken)
+        private Models.Enums.Role ResolveRole(ClaimsPrincipal principal)
         {
-            if (!_refreshTokens.TryGetValue(refreshToken, out var userId))
-                throw new Exception("Invalid refresh token");
+            var roleClaimTypes = new[]
+            {
+                ClaimTypes.Role,
+                "role",
+                "roles",
+                "https://qioapp.com/role",
+                "https://qioapp.com/roles"
+            };
 
-            var user = await _unitOfWork.Users.GetByIdAsync(userId);
-            if (user == null)
-                throw new Exception("User not found");
+            foreach (var claimType in roleClaimTypes)
+            {
+                var raw = principal.FindFirst(claimType)?.Value;
+                if (string.IsNullOrWhiteSpace(raw))
+                    continue;
 
-            var newAccessToken = _tokenService.GenerateAccessToken(user);
-            var newRefreshToken = _tokenService.GenerateRefreshToken();
+                if (Enum.TryParse<Models.Enums.Role>(raw, true, out var parsedRole))
+                    return parsedRole;
+            }
 
-            _refreshTokens.Remove(refreshToken);
-            _refreshTokens[newRefreshToken] = user.UserId;
+            var permissionClaims = principal.Claims
+                .Where(c => string.Equals(c.Type, "permissions", StringComparison.OrdinalIgnoreCase))
+                .Select(c => c.Value);
 
-            return (newAccessToken, newRefreshToken);
-        }
+            if (_adminPermissions.Count > 0 &&
+                permissionClaims.Any(permission => _adminPermissions.Contains(permission)))
+            {
+                return Models.Enums.Role.Admin;
+            }
 
-        public Task LogoutAsync(string refreshToken)
-        {
-            _refreshTokens.Remove(refreshToken);
-            return Task.CompletedTask;
-        }
+            if (permissionClaims.Any(permission =>
+                    permission.Contains("admin", StringComparison.OrdinalIgnoreCase)))
+            {
+                return Models.Enums.Role.Admin;
+            }
 
-        private static string HashPassword(string password)
-        {
-            byte[] salt = RandomNumberGenerator.GetBytes(16);
-            byte[] hash = KeyDerivation.Pbkdf2(
-                password: password,
-                salt: salt,
-                prf: KeyDerivationPrf.HMACSHA256,
-                iterationCount: 10000,
-                numBytesRequested: 32);
-
-            return $"{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
-        }
-
-        private static bool VerifyPassword(string password, string hashedPassword)
-        {
-            var parts = hashedPassword.Split('.');
-            if (parts.Length != 2)
-                return false;
-
-            var salt = Convert.FromBase64String(parts[0]);
-            var hash = Convert.FromBase64String(parts[1]);
-
-            var attemptedHash = KeyDerivation.Pbkdf2(
-                password: password,
-                salt: salt,
-                prf: KeyDerivationPrf.HMACSHA256,
-                iterationCount: 10000,
-                numBytesRequested: 32
-            );
-
-            return hash.SequenceEqual(attemptedHash);
+            return Models.Enums.Role.User;
         }
     }
 }

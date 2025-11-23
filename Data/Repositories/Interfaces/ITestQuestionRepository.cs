@@ -1,10 +1,10 @@
 using QuizApp.Models;
-using QuizApp.Models.Enums;
 
 namespace QuizApp.Data.Repositories.Interfaces
 {
     public interface ITestQuestionRepository : IGenericRepository<TestQuestion>
     {
-        Task<IEnumerable<TestQuestion>> GetByCategoryAsync(Category category, int count);
+        Task<TestQuestion?> GetByIdAsync(int id);
+        Task<IEnumerable<TestQuestion>> GetByCategoryAsync(int categoryId, int count);
     }
 }

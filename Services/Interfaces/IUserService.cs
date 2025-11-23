@@ -23,6 +23,7 @@ namespace QuizApp.Services.Interfaces
         Task<IEnumerable<Attempt>> GetAttemptsAsync(Guid userId);
         Task<Attempt?> GetLastAttemptAsync(Guid userId);
         Task<IEnumerable<User>> SearchAsync(string keyword);
+        Task<UserStats> GetStatsAsync(Guid userId);
 
     }
 }

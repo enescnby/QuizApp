@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using QuizApp.Services.Interfaces;
 
 namespace QuizApp.Middlewares
@@ -19,22 +18,19 @@ namespace QuizApp.Middlewares
             if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer", StringComparison.OrdinalIgnoreCase))
             {
                 var token = authHeader.Substring("Bearer ".Length).Trim();
-                
+                context.Items["JWT"] = token;
+            }
+
+            if (context.User?.Identity?.IsAuthenticated == true)
+            {
                 try
                 {
-                    var tokenService = context.RequestServices.GetRequiredService<ITokenService>();
-                    
-                    var principal = tokenService.GetClaimsPrincipalFromExpiredToken(token);
-                    
-                    if (principal != null)
-                    {
-                        context.Items["JWT"] = token;
-                        context.Items["UserId"] = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                        context.Items["Username"] = principal.FindFirst(ClaimTypes.Name)?.Value;
-                        context.Items["Role"] = principal.FindFirst(ClaimTypes.Role)?.Value;
-                        
-                        context.User = principal;
-                    }
+                    var authService = context.RequestServices.GetRequiredService<IAuthService>();
+                    var user = await authService.EnsureUserAsync(context.User);
+
+                    context.Items["UserId"] = user.UserId.ToString();
+                    context.Items["Username"] = user.Username;
+                    context.Items["Role"] = user.Role.ToString();
                 }
                 catch (Exception)
                 {

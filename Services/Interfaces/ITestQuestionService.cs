@@ -1,13 +1,12 @@
 using System.Collections;
 using System.Linq.Expressions;
 using QuizApp.Models;
-using QuizApp.Models.Enums;
 
 namespace QuizApp.Services.Interfaces
 {
     public interface ITestQuestionService
     {
-        Task<TestQuestion?> GetByIdAsync(Guid id);
+        Task<TestQuestion?> GetByIdAsync(int id);
         Task<IEnumerable<TestQuestion>> GetAllAsync();
         Task<IEnumerable<TestQuestion>> FindAsync(Expression<Func<TestQuestion, bool>> predicate);
         Task AddAndSaveAsync(TestQuestion testQuestion);
@@ -20,9 +19,10 @@ namespace QuizApp.Services.Interfaces
         Task DeleteAndSaveAsync(TestQuestion testQuestion);
         void DeleteRange(IEnumerable<TestQuestion> testQuestions);
         Task DeleteRangeAndSaveAsync(IEnumerable<TestQuestion> testQuestions);
-        Task<IEnumerable<TestQuestion>> GetByCategoryAsync(Category category, int count);
+        Task<IEnumerable<TestQuestion>> GetByCategoryAsync(string categorySlug, int count);
         Task<TestQuestion> CreateAndSaveQuestionAsync(
-            Category category,
+            string categorySlug,
+            string? categoryName,
             string text,
             string optionA,
             string optionB,
@@ -31,7 +31,9 @@ namespace QuizApp.Services.Interfaces
             string correctOption
         );
 
-        Task<string> GetCorrectAnswer(Guid questionId);
-        Task<bool> GuessTheQuestion(Guid userId, Guid questionId, string answer); 
+        Task<string> GetCorrectAnswer(int questionId);
+        Task<(bool IsCorrect, string CorrectOption)> GuessTheQuestion(Guid userId, int questionId, string answer);
+        Task ReportQuestionAsync(int questionId, Guid? reporterUserId, string? reason);
+        Task<IEnumerable<QuestionReport>> GetReportedQuestionsAsync();
     }
 }

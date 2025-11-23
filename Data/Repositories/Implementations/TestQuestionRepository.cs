@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using QuizApp.Data.Repositories.Interfaces;
 using QuizApp.Models;
-using QuizApp.Models.Enums;
 
 namespace QuizApp.Data.Repositories.Implementations
 {
@@ -9,8 +8,14 @@ namespace QuizApp.Data.Repositories.Implementations
     {
         public TestQuestionRepository(ApplicationDbContext context) : base(context) { }
 
-        public async Task<IEnumerable<TestQuestion>> GetByCategoryAsync(Category category, int count) =>
-            await _dbSet.Where(tq => tq.Category == category)
-                .OrderBy(tq => EF.Functions.Random()).Take(count).ToListAsync();
+        public async Task<TestQuestion?> GetByIdAsync(int id) =>
+            await _dbSet.FindAsync(id);
+
+        public async Task<IEnumerable<TestQuestion>> GetByCategoryAsync(int categoryId, int count) =>
+            await _dbSet
+                .Where(tq => tq.QuestionCategoryId == categoryId)
+                .OrderBy(tq => EF.Functions.Random())
+                .Take(count)
+                .ToListAsync();
     }
 }

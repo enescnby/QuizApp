@@ -1,12 +1,11 @@
+using System.Security.Claims;
 using QuizApp.Models;
 
 namespace QuizApp.Services.Interfaces
 {
     public interface IAuthService
     {
-        Task<User> RegisterAsync(string email, string username, string password);
-        Task<(string AccessToken, string RefreshToken)> LoginAsync(string email, string password);
-        Task<(string AccessToken, string RefreshToken)> RefreshTokenAsync(string refreshToken);
-        Task LogoutAsync(string refreshToken);
+        Task<User> EnsureUserAsync(ClaimsPrincipal principal);
+        Task<User?> GetByAuth0IdAsync(string auth0Id);
     }
 }

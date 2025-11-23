@@ -6,6 +6,8 @@ namespace QuizApp.Data.UnitOfWork
     {
         IUserRepository Users { get; }
         ITestQuestionRepository TestQuestions { get; }
+        ICategoryRepository Categories { get; }
+        IQuestionReportRepository QuestionReports { get; }
 
         Task<int> SaveChangesAsync();
     }

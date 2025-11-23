@@ -1,5 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using QuizApp.DTOs;
 using QuizApp.Services.Interfaces;
 
 namespace QuizApp.Controllers
@@ -15,46 +15,22 @@ namespace QuizApp.Controllers
             _authService = authService;
         }
 
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> Me()
         {
             try
             {
-                var user = await _authService.RegisterAsync(request.Email, request.Username, request.Password);
+                var user = await _authService.EnsureUserAsync(User);
+
                 return Ok(new
                 {
                     user.UserId,
+                    user.Auth0Id,
                     user.Email,
                     user.Username,
                     user.Role,
                     user.CreatedAt
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
-        {
-            try
-            {
-                var tokens = await _authService.LoginAsync(request.Email, request.Password);
-
-                Response.Cookies.Append("refreshToken", tokens.RefreshToken, new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = false,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = DateTime.UtcNow.AddDays(7)
-                });
-
-                return Ok(new
-                {
-                    accessToken = tokens.AccessToken,
-                    expiresIn = DateTime.UtcNow.AddDays(7)
                 });
             }
             catch (Exception ex)

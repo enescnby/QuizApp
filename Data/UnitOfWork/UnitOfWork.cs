@@ -8,16 +8,22 @@ namespace QuizApp.Data.UnitOfWork
 
         public IUserRepository Users { get; }
         public ITestQuestionRepository TestQuestions { get; }
+        public ICategoryRepository Categories { get; }
+        public IQuestionReportRepository QuestionReports { get; }
 
         public UnitOfWork(
             ApplicationDbContext context,
             IUserRepository userRepository,
-            ITestQuestionRepository testQuestionRepository
+            ITestQuestionRepository testQuestionRepository,
+            ICategoryRepository categoryRepository,
+            IQuestionReportRepository questionReportRepository
         )
         {
             _context = context;
             Users = userRepository;
             TestQuestions = testQuestionRepository;
+            Categories = categoryRepository;
+            QuestionReports = questionReportRepository;
         }
 
         public async Task<int> SaveChangesAsync() =>

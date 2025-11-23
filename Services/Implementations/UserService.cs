@@ -92,5 +92,8 @@ namespace QuizApp.Services.Implementations
 
         public async Task<IEnumerable<User>> SearchAsync(string keyword) =>
             await _unitOfWork.Users.SearchAsync(keyword);
+
+        public async Task<UserStats> GetStatsAsync(Guid userId) =>
+            await _unitOfWork.Users.GetStatsAsync(userId);
     }
 }

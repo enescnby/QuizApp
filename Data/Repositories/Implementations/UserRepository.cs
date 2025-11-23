@@ -16,6 +16,9 @@ namespace QuizApp.Data.Repositories.Implementations
         public async Task<User?> GetByUsernameAsync(string username) =>
             await _dbSet.FirstOrDefaultAsync(u => u.Username == username);
 
+        public async Task<User?> GetByAuth0IdAsync(string auth0Id) =>
+            await _dbSet.FirstOrDefaultAsync(u => u.Auth0Id == auth0Id);
+
         public async Task<bool> ExistsByEmailAsync(string email) =>
             await _dbSet.AnyAsync(u => u.Email == email);
 
@@ -39,8 +42,13 @@ namespace QuizApp.Data.Repositories.Implementations
 
         public async Task<UserStats> GetStatsAsync(Guid userId)
         {
-            User user = await _dbSet.FindAsync(userId)
+            var user = await _dbSet
+                .Include(u => u.Stats)
+                .FirstOrDefaultAsync(u => u.UserId == userId)
                 ?? throw new Exception("user not found");
+
+            if (user.Stats == null)
+                throw new Exception("user stats not found");
 
             return user.Stats;
         }
